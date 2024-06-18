@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+.idea/
+*.iml
+*.pem
+*.zip
+# dotenv environment variables file
+.env
