@@ -154,11 +154,24 @@ const deletePost = async (req, res, next) => {
         }
 
         const fileName = post.thumbnail;
-        fs.unlink(path.join(__dirname, '..', 'uploads', fileName), async (err) => {
-            if (err) {
-                return next(new HttpError("Failed to delete thumbnail", 500));
-            }
+        if (fileName) {
+            const filePath = path.join(__dirname, '..', 'uploads', fileName);
+            fs.unlink(filePath, async (err) => {
+                if (err) {
+                    return next(new HttpError("Failed to delete thumbnail", 500));
+                }
 
+                await Post.findByIdAndDelete(postId);
+
+                const currentUser = await User.findById(req.user.id);
+                if (currentUser) {
+                    const userPostCount = currentUser.posts - 1;
+                    await User.findByIdAndUpdate(req.user.id, { posts: userPostCount });
+                }
+
+                res.status(200).json({ message: `Post ${postId} deleted successfully` });
+            });
+        } else {
             await Post.findByIdAndDelete(postId);
 
             const currentUser = await User.findById(req.user.id);
@@ -168,9 +181,9 @@ const deletePost = async (req, res, next) => {
             }
 
             res.status(200).json({ message: `Post ${postId} deleted successfully` });
-        });
+        }
     } catch (error) {
-        return next(new HttpError("Something went wrong", 500));
+        return next(new HttpError(error));
     }
 };
 
@@ -206,12 +219,15 @@ const editPost = async (req, res, next) => {
                 return next(new HttpError("Image too big, should be not bigger than 2 MB", 422));
             }
 
-            // Удаление старого файла
-            fs.unlink(path.join(__dirname, '..', 'uploads', oldPost.thumbnail), async (err) => {
-                if (err) {
-                    return next(new HttpError("Failed to delete old thumbnail", 500));
-                }
-            });
+            // Удаление старого файла, если он существует
+            if (oldPost.thumbnail) {
+                const oldFilePath = path.join(__dirname, '..', 'uploads', oldPost.thumbnail);
+                fs.unlink(oldFilePath, (err) => {
+                    if (err) {
+                        return next(new HttpError("Failed to delete old thumbnail", 500));
+                    }
+                });
+            }
 
             const fileName = thumbnail.name;
             const splittedFilename = fileName.split('.');
@@ -240,7 +256,7 @@ const editPost = async (req, res, next) => {
 
         res.status(200).json(updatedPost);
     } catch (error) {
-        return next(new HttpError("Something went wrong", 500));
+        return next(new HttpError(error));
     }
 };
 
